@@ -1,0 +1,101 @@
+name: windows-ci
+
+on:
+  [push, pull_request]
+
+jobs:
+  bazel:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.5', '3.6', '3.7', '3.8']
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup bazel
+        uses: jwlawson/actions-setup-bazel@v1
+        with:
+          bazel-version: '3.2.0'
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+
+      - uses: actions/cache@v2
+        if: startsWith(runner.os, 'Linux')
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python }}-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python }}-
+
+      - uses: actions/cache@v2
+        if: startsWith(runner.os, 'macOS')
+        with:
+          path: ~/Library/Caches/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python }}-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python }}-
+
+      - uses: actions/cache@v2
+        if: startsWith(runner.os, 'Windows')
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ matrix.python }}-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python }}-
+
+      - run: pip install numpy -r requirements_dev.txt
+#      - run: echo "::set-env name=PYTHON_BIN_PATH::$(which python)"
+      - run: bazel --bazelrc=.bazelrc.travis test //...
+      - run: python setup.py build_ext -i
+      - run: make ctest
+      - run: make test
+      - run: make lint
+
+#  test:
+#    runs-on: ${{ matrix.os }}-latest
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        python: ['3.5', '3.6', '3.7', '3.8']
+#        os: [
+#          windows,
+#          ubuntu,
+#          macos,
+#        ]
+#    steps:
+#      - uses: actions/checkout@v2
+#
+#      - uses: actions/setup-python@v2
+#        with:
+#          python-version: ${{ matrix.python }}
+#
+#      - uses: actions/cache@v2
+#        if: startsWith(runner.os, 'Linux')
+#        with:
+#          path: ~/.cache/pip
+#          key: ${{ runner.os }}-pip-${{ matrix.python }}-${{ hashFiles('requirements*.txt') }}
+#          restore-keys: |
+#            ${{ runner.os }}-pip-${{ matrix.python }}-
+#
+#      - uses: actions/cache@v2
+#        if: startsWith(runner.os, 'macOS')
+#        with:
+#          path: ~/Library/Caches/pip
+#          key: ${{ runner.os }}-pip-${{ matrix.python }}-${{ hashFiles('requirements*.txt') }}
+#          restore-keys: |
+#            ${{ runner.os }}-pip-${{ matrix.python }}-
+#
+#      - uses: actions/cache@v2
+#        if: startsWith(runner.os, 'Windows')
+#        with:
+#          path: ~\AppData\Local\pip\Cache
+#          key: ${{ runner.os }}-pip-${{ matrix.python }}-${{ hashFiles('requirements*.txt') }}
+#          restore-keys: |
+#            ${{ runner.os }}-pip-${{ matrix.python }}-
+#
+#      - run: pip install -r requirements_dev.txt
+#      - run: python setup.py build_ext -i
+#      - run: python -m pytest beancount/
